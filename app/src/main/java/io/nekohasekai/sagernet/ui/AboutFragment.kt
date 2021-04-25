@@ -21,9 +21,14 @@
 
 package io.nekohasekai.sagernet.ui
 
+import android.content.Context
 import android.os.Bundle
 import android.view.View
 import androidx.core.view.ViewCompat
+import com.danielstone.materialaboutlibrary.MaterialAboutFragment
+import com.danielstone.materialaboutlibrary.items.MaterialAboutActionItem
+import com.danielstone.materialaboutlibrary.model.MaterialAboutCard
+import com.danielstone.materialaboutlibrary.model.MaterialAboutList
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.widget.ListHolderListener
 
@@ -34,6 +39,27 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
 
         ViewCompat.setOnApplyWindowInsetsListener(view, ListHolderListener)
         toolbar.setTitle(R.string.menu_about)
+
+        parentFragmentManager.beginTransaction().replace(R.id.fragment_holder, Material())
+            .commitAllowingStateLoss()
+    }
+
+    class Material : MaterialAboutFragment() {
+
+        override fun getMaterialAboutList(activityContext: Context): MaterialAboutList {
+
+            return MaterialAboutList.Builder()
+                .addCard(MaterialAboutCard.Builder()
+                    .outline(false)
+                    .addItem(MaterialAboutActionItem.Builder()
+                        .text(R.string.app_name)
+                        .build()
+                    )
+                    .build()
+                )
+                .build()
+
+        }
     }
 
 }

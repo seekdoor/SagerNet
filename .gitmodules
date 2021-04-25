@@ -28,3 +28,9 @@
 [submodule "shadowsocksr/src/main/jni/re2"]
 	path = shadowsocksr/src/main/jni/re2
 	url = https://github.com/google/re2
+[submodule "app/src/main/jni/tunsocks"]
+	path = app/src/main/jni/tunsocks
+	url = https://github.com/russdill/tunsocks
+[submodule "app/src/main/jni/libevent"]
+	path = app/src/main/jni/libevent
+	url = https://github.com/libevent/libevent
