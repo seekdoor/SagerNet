@@ -34,3 +34,19 @@
 [submodule "app/src/main/jni/libevent"]
 	path = app/src/main/jni/libevent
 	url = https://github.com/libevent/libevent
+
+[submodule "openvpn/src/main/cpp/asio"]
+	path = openvpn/src/main/cpp/asio
+	url = https://github.com/chriskohlhoff/asio
+[submodule "openvpn/src/main/cpp/lz4"]
+	path = openvpn/src/main/cpp/lz4
+	url = https://github.com/lz4/lz4
+[submodule "openvpn/src/main/cpp/openssl"]
+	path = openvpn/src/main/cpp/openssl
+	url = https://github.com/schwabe/platform_external_openssl
+[submodule "openvpn/src/main/cpp/openvpn"]
+	path = openvpn/src/main/cpp/openvpn
+	url = https://github.com/schwabe/openvpn
+[submodule "openvpn/src/main/cpp/openvpn3"]
+	path = openvpn/src/main/cpp/openvpn3
+	url = https://github.com/schwabe/openvpn3

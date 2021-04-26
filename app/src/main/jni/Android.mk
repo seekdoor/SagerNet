@@ -237,3 +237,19 @@ LOCAL_SHARED_LIBRARIES := \
 	event
 
 include $(BUILD_SHARED_EXECUTABLE)
+
+
+########################################################
+## sagernet
+########################################################
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := sagernet
+LOCAL_SRC_FILES := \
+	$(LOCAL_PATH)/sagernet/tools.c
+
+LOCAL_C_INCLUDES := \
+	$(LOCAL_PATH)/sagernet/
+
+include $(BUILD_SHARED_LIBRARY)
