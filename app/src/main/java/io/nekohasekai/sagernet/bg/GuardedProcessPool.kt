@@ -1,6 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
  * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
  *                                                                            *
@@ -46,7 +46,7 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
         }
     }
 
-    private inner class Guard(private val cmd: List<String>) {
+    private inner class Guard(private val cmd: List<String>, private val env: Map<String, String> = mapOf()) {
         private lateinit var process: Process
 
         private fun streamLogger(input: InputStream, logger: (String) -> Unit) = try {
@@ -55,9 +55,12 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
         }    // ignore
 
         fun start() {
-            process = ProcessBuilder(cmd).directory(SagerNet.deviceStorage.noBackupFilesDir).start()
+            process = ProcessBuilder(cmd).directory(SagerNet.deviceStorage.noBackupFilesDir).apply {
+                environment().putAll(env)
+            }.start()
         }
 
+        @DelicateCoroutinesApi
         suspend fun looper(onRestartCallback: (suspend () -> Unit)?) {
             var running = true
             val cmdName = File(cmd.first()).nameWithoutExtension
@@ -68,7 +71,7 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
                         streamLogger(process.errorStream) { Log.e(cmdName, it) }
                     }
                     thread(name = "stdout-$cmdName") {
-                        streamLogger(process.inputStream) { Log.v(cmdName, it) }
+                        streamLogger(process.inputStream) { Log.i(cmdName, it) }
                         // this thread also acts as a daemon thread for waitFor
                         runBlocking { exitChannel.send(process.waitFor()) }
                     }
@@ -115,9 +118,9 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
     override val coroutineContext = Dispatchers.Main.immediate + Job()
 
     @MainThread
-    fun start(cmd: List<String>, onRestartCallback: (suspend () -> Unit)? = null) {
+    fun start(cmd: List<String>,env: Map<String,String> = mapOf(), onRestartCallback: (suspend () -> Unit)? = null) {
         Logs.i("start process: ${Commandline.toString(cmd)}")
-        Guard(cmd).apply {
+        Guard(cmd, env).apply {
             start() // if start fails, IOException will be thrown directly
             launch { looper(onRestartCallback) }
         }
@@ -126,6 +129,6 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
     @MainThread
     fun close(scope: CoroutineScope) {
         cancel()
-        coroutineContext[Job]!!.also { job -> scope.launch { job.join() } }
+        coroutineContext[Job]!!.also { job -> scope.launch { job.cancelAndJoin() } }
     }
 }

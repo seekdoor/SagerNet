@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -21,27 +19,18 @@
 
 package io.nekohasekai.sagernet.fmt.shadowsocksr;
 
+import androidx.annotation.NonNull;
+
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 
 import org.jetbrains.annotations.NotNull;
 
+import cn.hutool.core.util.StrUtil;
 import io.nekohasekai.sagernet.fmt.AbstractBean;
 import io.nekohasekai.sagernet.fmt.KryoConverters;
 
 public class ShadowsocksRBean extends AbstractBean {
-
-    public static ShadowsocksRBean DEFAULT_BEAN = new ShadowsocksRBean() {{
-        name = "";
-        serverAddress = "127.0.0.1";
-        serverPort = 1080;
-        password = "";
-        protocol = "origin";
-        protocolParam = "";
-        obfs = "plain";
-        obfsParam = "";
-        method = "aes-256-gcm";
-    }};
 
     public String password;
     public String method;
@@ -51,14 +40,14 @@ public class ShadowsocksRBean extends AbstractBean {
     public String obfsParam;
 
     @Override
-    public void initDefaultValues() {
-        super.initDefaultValues();
+    public void initializeDefaultValues() {
+        super.initializeDefaultValues();
 
         if (password == null) password = "";
-        if (method == null) method = "";
-        if (protocol == null) protocol = "";
+        if (StrUtil.isBlank(method)) method = "aes-256-cfb";
+        if (StrUtil.isBlank(protocol)) protocol = "origin";
         if (protocolParam == null) protocolParam = "";
-        if (obfs == null) obfs = "";
+        if (StrUtil.isBlank(obfs)) obfs = "plain";
         if (obfsParam == null) obfsParam = "";
 
     }
@@ -93,4 +82,17 @@ public class ShadowsocksRBean extends AbstractBean {
     public ShadowsocksRBean clone() {
         return KryoConverters.deserialize(new ShadowsocksRBean(), KryoConverters.serialize(this));
     }
+
+    public static final Creator<ShadowsocksRBean> CREATOR = new CREATOR<ShadowsocksRBean>() {
+        @NonNull
+        @Override
+        public ShadowsocksRBean newInstance() {
+            return new ShadowsocksRBean();
+        }
+
+        @Override
+        public ShadowsocksRBean[] newArray(int size) {
+            return new ShadowsocksRBean[size];
+        }
+    };
 }

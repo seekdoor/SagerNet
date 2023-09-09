@@ -1,6 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
  * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
  *                                                                            *
@@ -36,8 +36,8 @@ object ListHolderListener : OnApplyWindowInsetsListener {
             statusBarInsets.bottom)
         return WindowInsetsCompat.Builder(insets).apply {
             setInsets(WindowInsetsCompat.Type.statusBars(), Insets.NONE)
-            setInsets(WindowInsetsCompat.Type.navigationBars(),
-                insets.getInsets(WindowInsetsCompat.Type.navigationBars()))
+            /*setInsets(WindowInsetsCompat.Type.navigationBars(),
+                insets.getInsets(WindowInsetsCompat.Type.navigationBars()))*/
         }.build()
     }
 

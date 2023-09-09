@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -29,9 +27,9 @@ import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 
+@SuppressWarnings({"ConstantConditions", "unchecked", "rawtypes"})
 public class JsonOrAdapterFactory implements TypeAdapterFactory {
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
     @Override
     public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {
         if (!JsonOr.class.isAssignableFrom(type.getRawType())) return null;
@@ -43,7 +41,7 @@ public class JsonOrAdapterFactory implements TypeAdapterFactory {
         Type[] args = parameterized.getActualTypeArguments();
         try {
             JsonOr<?, ?> instance = (JsonOr<?, ?>) type.getRawType().newInstance();
-            return new JsonOrAdapter(gson, TypeToken.get(args[0]), TypeToken.get(args[1]), instance.tokenX, instance.tokenY);
+            return new JsonOrAdapter(gson, TypeToken.get(args[0]), TypeToken.get(args[1]), type, instance.tokenX, instance.tokenY);
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException(e);

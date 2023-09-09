@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -23,7 +21,7 @@ package io.nekohasekai.sagernet.ui.profile
 
 import android.os.Bundle
 import androidx.preference.EditTextPreference
-import androidx.preference.PreferenceFragmentCompat
+import com.takisoft.preferencex.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
@@ -33,10 +31,6 @@ import io.nekohasekai.sagernet.fmt.shadowsocksr.ShadowsocksRBean
 class ShadowsocksRSettingsActivity : ProfileSettingsActivity<ShadowsocksRBean>() {
 
     override fun createEntity() = ShadowsocksRBean()
-
-    override fun init() {
-        ShadowsocksRBean.DEFAULT_BEAN.init()
-    }
 
     override fun ShadowsocksRBean.init() {
         DataStore.profileName = name

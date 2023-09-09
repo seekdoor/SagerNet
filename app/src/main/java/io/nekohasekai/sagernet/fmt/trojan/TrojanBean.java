@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -20,6 +18,8 @@
  ******************************************************************************/
 
 package io.nekohasekai.sagernet.fmt.trojan;
+
+import androidx.annotation.NonNull;
 
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
@@ -39,14 +39,24 @@ public class TrojanBean extends AbstractBean {
     public String alpn;
     public String flow;
 
+    // --------------------------------------- //
+
+    public Boolean allowInsecure;
+
     @Override
-    public void initDefaultValues() {
-        super.initDefaultValues();
+    public boolean allowInsecure() {
+        return allowInsecure;
+    }
+
+    @Override
+    public void initializeDefaultValues() {
+        super.initializeDefaultValues();
 
         if (password == null) password = "";
         if (StrUtil.isBlank(security)) security = "tls";
         if (sni == null) sni = "";
         if (alpn == null) alpn = "";
+        if (allowInsecure == null) allowInsecure = false;
         if (flow == null) flow = "";
 
     }
@@ -57,19 +67,13 @@ public class TrojanBean extends AbstractBean {
         super.serialize(output);
         output.writeString(password);
         output.writeString(security);
+        output.writeString(sni);
+        output.writeString(alpn);
 
-        switch (security) {
-            case "tls": {
-                output.writeString(sni);
-                output.writeString(alpn);
-                break;
-            }
-            case "xtls": {
-                output.writeString(sni);
-                output.writeString(alpn);
-                output.writeString(flow);
-                break;
-            }
+        if (!"xtls".equals(security)) {
+            output.writeBoolean(allowInsecure);
+        } else {
+            output.writeString(flow);
         }
     }
 
@@ -78,33 +82,43 @@ public class TrojanBean extends AbstractBean {
         int version = input.readInt();
         super.deserialize(input);
         password = input.readString();
-        if (version == 0) {
-            security = "tls";
-            sni = input.readString();
-
-            initDefaultValues();
-            return;
-        }
         security = input.readString();
-        switch (security) {
-            case "tls": {
-                sni = input.readString();
-                alpn = input.readString();
-                break;
-            }
-            case "xtls": {
-                sni = input.readString();
-                alpn = input.readString();
+        sni = input.readString();
+        alpn = input.readString();
+        if (version >= 1) {
+            if (!"xtls".equals(security)) {
+                allowInsecure = input.readBoolean();
+            } else {
                 flow = input.readString();
             }
         }
+    }
 
-        initDefaultValues();
+    @Override
+    public void applyFeatureSettings(AbstractBean other) {
+        if (!(other instanceof TrojanBean)) return;
+        TrojanBean bean = ((TrojanBean) other);
+        if (allowInsecure) {
+            bean.allowInsecure = true;
+        }
     }
 
     @NotNull
     @Override
-    public AbstractBean clone() {
+    public TrojanBean clone() {
         return KryoConverters.deserialize(new TrojanBean(), KryoConverters.serialize(this));
     }
+
+    public static final Creator<TrojanBean> CREATOR = new CREATOR<TrojanBean>() {
+        @NonNull
+        @Override
+        public TrojanBean newInstance() {
+            return new TrojanBean();
+        }
+
+        @Override
+        public TrojanBean[] newArray(int size) {
+            return new TrojanBean[size];
+        }
+    };
 }

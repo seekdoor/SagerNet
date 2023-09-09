@@ -1,8 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
- * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
- * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  *                                                                            *
  * This program is free software: you can redistribute it and/or modify       *
  * it under the terms of the GNU General Public License as published by       *
@@ -26,37 +24,72 @@ import android.content.Intent
 import android.os.Parcel
 import android.os.Parcelable
 import androidx.room.*
+import com.esotericsoftware.kryo.Kryo
+import com.esotericsoftware.kryo.io.ByteBufferInput
+import com.esotericsoftware.kryo.io.ByteBufferOutput
+import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.TrojanProvider
 import io.nekohasekai.sagernet.aidl.TrafficStats
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.KryoConverters
+import io.nekohasekai.sagernet.fmt.Serializable
+import io.nekohasekai.sagernet.fmt.brook.BrookBean
+import io.nekohasekai.sagernet.fmt.buildV2RayConfig
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.http.toUri
+import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
+import io.nekohasekai.sagernet.fmt.hysteria.buildHysteriaConfig
+import io.nekohasekai.sagernet.fmt.internal.BalancerBean
+import io.nekohasekai.sagernet.fmt.internal.ChainBean
+import io.nekohasekai.sagernet.fmt.internal.ConfigBean
+import io.nekohasekai.sagernet.fmt.mieru.MieruBean
+import io.nekohasekai.sagernet.fmt.mieru.buildMieruConfig
+import io.nekohasekai.sagernet.fmt.naive.NaiveBean
+import io.nekohasekai.sagernet.fmt.naive.buildNaiveConfig
+import io.nekohasekai.sagernet.fmt.naive.toUri
+import io.nekohasekai.sagernet.fmt.pingtunnel.PingTunnelBean
+import io.nekohasekai.sagernet.fmt.pingtunnel.toUri
+import io.nekohasekai.sagernet.fmt.relaybaton.RelayBatonBean
+import io.nekohasekai.sagernet.fmt.relaybaton.buildRelayBatonConfig
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
-import io.nekohasekai.sagernet.fmt.shadowsocks.methodsV2fly
 import io.nekohasekai.sagernet.fmt.shadowsocks.toUri
 import io.nekohasekai.sagernet.fmt.shadowsocksr.ShadowsocksRBean
 import io.nekohasekai.sagernet.fmt.shadowsocksr.toUri
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import io.nekohasekai.sagernet.fmt.socks.toUri
+import io.nekohasekai.sagernet.fmt.ssh.SSHBean
+import io.nekohasekai.sagernet.fmt.toUniversalLink
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.trojan.toUri
+import io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean
+import io.nekohasekai.sagernet.fmt.trojan_go.buildTrojanGoConfig
+import io.nekohasekai.sagernet.fmt.trojan_go.toUri
+import io.nekohasekai.sagernet.fmt.tuic.TuicBean
+import io.nekohasekai.sagernet.fmt.tuic.buildTuicConfig
+import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.VLESSBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.toUri
+import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.ktx.Logs
+import io.nekohasekai.sagernet.ktx.app
+import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import io.nekohasekai.sagernet.ui.profile.*
 
-@Entity(tableName = "proxy_entities", indices = [
-    Index("groupId", name = "groupId")
-])
+@Entity(
+    tableName = "proxy_entities", indices = [Index("groupId", name = "groupId")]
+)
 data class ProxyEntity(
-    @PrimaryKey(autoGenerate = true)
-    var id: Long = 0L,
-    var groupId: Long,
+    @PrimaryKey(autoGenerate = true) var id: Long = 0L,
+    var groupId: Long = 0L,
     var type: Int = 0,
     var userOrder: Long = 0L,
     var tx: Long = 0L,
     var rx: Long = 0L,
+    var status: Int = 0,
+    var ping: Int = 0,
+    var uuid: String = "",
+    var error: String? = null,
     var socksBean: SOCKSBean? = null,
     var httpBean: HttpBean? = null,
     var ssBean: ShadowsocksBean? = null,
@@ -64,7 +97,63 @@ data class ProxyEntity(
     var vmessBean: VMessBean? = null,
     var vlessBean: VLESSBean? = null,
     var trojanBean: TrojanBean? = null,
-) : Parcelable {
+    var trojanGoBean: TrojanGoBean? = null,
+    var naiveBean: NaiveBean? = null,
+    var ptBean: PingTunnelBean? = null,
+    var rbBean: RelayBatonBean? = null,
+    var brookBean: BrookBean? = null,
+    var hysteriaBean: HysteriaBean? = null,
+    var mieruBean: MieruBean? = null,
+    var tuicBean: TuicBean? = null,
+    var sshBean: SSHBean? = null,
+    var wgBean: WireGuardBean? = null,
+    var configBean: ConfigBean? = null,
+    var chainBean: ChainBean? = null,
+    var balancerBean: BalancerBean? = null
+) : Serializable() {
+
+    companion object {
+        const val TYPE_SOCKS = 0
+        const val TYPE_HTTP = 1
+        const val TYPE_SS = 2
+        const val TYPE_SSR = 3
+        const val TYPE_VMESS = 4
+        const val TYPE_VLESS = 5
+        const val TYPE_TROJAN = 6
+        const val TYPE_TROJAN_GO = 7
+        const val TYPE_NAIVE = 9
+        const val TYPE_PING_TUNNEL = 10
+        const val TYPE_RELAY_BATON = 11
+        const val TYPE_BROOK = 12
+        const val TYPE_HYSTERIA = 15
+        const val TYPE_SNELL = 16
+        const val TYPE_SSH = 17
+        const val TYPE_WG = 18
+        const val TYPE_MIERU = 19
+        const val TYPE_TUIC = 20
+
+        const val TYPE_CHAIN = 8
+        const val TYPE_BALANCER = 14
+        const val TYPE_CONFIG = 13
+
+        val chainName by lazy { app.getString(R.string.proxy_chain) }
+        val configName by lazy { app.getString(R.string.custom_config) }
+        val balancerName by lazy { app.getString(R.string.balancer) }
+
+        private val placeHolderBean = SOCKSBean().applyDefaultValues()
+
+        @JvmField
+        val CREATOR = object : Serializable.CREATOR<ProxyEntity>() {
+
+            override fun newInstance(): ProxyEntity {
+                return ProxyEntity()
+            }
+
+            override fun newArray(size: Int): Array<ProxyEntity?> {
+                return arrayOfNulls(size)
+            }
+        }
+    }
 
     @Ignore
     @Transient
@@ -74,164 +163,411 @@ data class ProxyEntity(
     @Transient
     var stats: TrafficStats? = null
 
+    override fun initializeDefaultValues() {
+    }
 
-    constructor(parcel: Parcel) : this(
-        parcel.readLong(),
-        parcel.readLong(),
-        parcel.readInt(),
-        parcel.readLong(),
-        parcel.readLong(),
-        parcel.readLong()) {
-        dirty = parcel.readByte() > 0
-        val byteArray = ByteArray(parcel.readInt())
-        parcel.readByteArray(byteArray)
+    override fun serializeToBuffer(output: ByteBufferOutput) {
+        output.writeInt(0)
+
+        output.writeLong(id)
+        output.writeLong(groupId)
+        output.writeInt(type)
+        output.writeLong(userOrder)
+        output.writeLong(tx)
+        output.writeLong(rx)
+        output.writeInt(status)
+        output.writeInt(ping)
+        output.writeString(uuid)
+        output.writeString(error)
+
+        val data = KryoConverters.serialize(requireBean())
+        output.writeVarInt(data.size, true)
+        output.writeBytes(data)
+
+        output.writeBoolean(dirty)
+    }
+
+    override fun deserializeFromBuffer(input: ByteBufferInput) {
+        val version = input.readInt()
+
+        id = input.readLong()
+        groupId = input.readLong()
+        type = input.readInt()
+        userOrder = input.readLong()
+        tx = input.readLong()
+        rx = input.readLong()
+        status = input.readInt()
+        ping = input.readInt()
+        uuid = input.readString()
+        error = input.readString()
+        putByteArray(input.readBytes(input.readVarInt(true)))
+
+        dirty = input.readBoolean()
+    }
+
+
+    fun putByteArray(byteArray: ByteArray) {
         when (type) {
-            0 -> socksBean = KryoConverters.socksDeserialize(byteArray)
-            1 -> ssBean = KryoConverters.shadowsocksDeserialize(byteArray)
-            2 -> ssrBean = KryoConverters.shadowsocksRDeserialize(byteArray)
-            3 -> vmessBean = KryoConverters.vmessDeserialize(byteArray)
-            4 -> vlessBean = KryoConverters.vlessDeserialize(byteArray)
-            5 -> trojanBean = KryoConverters.trojanDeserialize(byteArray)
-            6 -> httpBean = KryoConverters.httpDeserialize(byteArray)
+            TYPE_SOCKS -> socksBean = KryoConverters.socksDeserialize(byteArray)
+            TYPE_HTTP -> httpBean = KryoConverters.httpDeserialize(byteArray)
+            TYPE_SS -> ssBean = KryoConverters.shadowsocksDeserialize(byteArray)
+            TYPE_SSR -> ssrBean = KryoConverters.shadowsocksRDeserialize(byteArray)
+            TYPE_VMESS -> vmessBean = KryoConverters.vmessDeserialize(byteArray)
+            TYPE_VLESS -> vlessBean = KryoConverters.vlessDeserialize(byteArray)
+            TYPE_TROJAN -> trojanBean = KryoConverters.trojanDeserialize(byteArray)
+            TYPE_TROJAN_GO -> trojanGoBean = KryoConverters.trojanGoDeserialize(byteArray)
+            TYPE_NAIVE -> naiveBean = KryoConverters.naiveDeserialize(byteArray)
+            TYPE_PING_TUNNEL -> ptBean = KryoConverters.pingTunnelDeserialize(byteArray)
+            TYPE_RELAY_BATON -> rbBean = KryoConverters.relayBatonDeserialize(byteArray)
+            TYPE_BROOK -> brookBean = KryoConverters.brookDeserialize(byteArray)
+            TYPE_HYSTERIA -> hysteriaBean = KryoConverters.hysteriaDeserialize(byteArray)
+            TYPE_SSH -> sshBean = KryoConverters.sshDeserialize(byteArray)
+            TYPE_WG -> wgBean = KryoConverters.wireguardDeserialize(byteArray)
+            TYPE_MIERU -> mieruBean = KryoConverters.mieruDeserialize(byteArray)
+            TYPE_TUIC -> tuicBean = KryoConverters.tuicDeserialize(byteArray)
+
+            TYPE_CONFIG -> configBean = KryoConverters.configDeserialize(byteArray)
+            TYPE_CHAIN -> chainBean = KryoConverters.chainDeserialize(byteArray)
+            TYPE_BALANCER -> balancerBean = KryoConverters.balancerBeanDeserialize(byteArray)
         }
     }
 
-    override fun writeToParcel(parcel: Parcel, flags: Int) {
-        parcel.writeLong(id)
-        parcel.writeLong(groupId)
-        parcel.writeInt(type)
-        parcel.writeLong(userOrder)
-        parcel.writeLong(tx)
-        parcel.writeLong(rx)
-        parcel.writeByte(if (dirty) 1 else 0)
-        val byteArray = KryoConverters.serialize(requireBean())
-        parcel.writeInt(byteArray.size)
-        parcel.writeByteArray(byteArray)
+    fun displayType() = when (type) {
+        TYPE_SOCKS -> socksBean!!.protocolName()
+        TYPE_HTTP -> if (httpBean!!.tls) "HTTPS" else "HTTP"
+        TYPE_SS -> "Shadowsocks"
+        TYPE_SSR -> "ShadowsocksR"
+        TYPE_VMESS -> "VMess"
+        TYPE_VLESS -> "VLESS"
+        TYPE_TROJAN -> "Trojan"
+        TYPE_TROJAN_GO -> "Trojan-Go"
+        TYPE_NAIVE -> "Naïve"
+        TYPE_PING_TUNNEL -> "PingTunnel"
+        TYPE_RELAY_BATON -> "relaybaton"
+        TYPE_BROOK -> "Brook"
+        TYPE_HYSTERIA -> "Hysteria"
+        TYPE_SNELL -> "Snell"
+        TYPE_SSH -> "SSH"
+        TYPE_WG -> "WireGuard"
+        TYPE_MIERU -> "Mieru"
+        TYPE_TUIC -> "TUIC"
+
+        TYPE_CHAIN -> chainName
+        TYPE_CONFIG -> configName
+        TYPE_BALANCER -> balancerName
+        else -> "Invalid"
     }
 
-    fun displayType(): String {
-        return when (type) {
-            0 -> "SOCKS5"
-            1 -> "Shadowsocks"
-            2 -> "ShadowsocksR"
-            3 -> "VMess"
-            4 -> "VLESS"
-            5 -> "Trojan"
-            6 -> if (requireHttp().tls) "HTTPS" else "HTTP"
-            else -> "Undefined type $type"
-        }
-    }
-
-    fun displayName(): String {
-        return requireBean().name.takeIf { !it.isNullOrBlank() }
-            ?: "${requireBean().serverAddress}:${requireBean().serverPort}"
-    }
+    fun displayName() = requireBean().displayName()
+    fun displayAddress() = requireBean().displayAddress()
 
     fun requireBean(): AbstractBean {
         return when (type) {
-            // 2 -> vmessBean ?: error("Null vmess node")
-            0 -> socksBean ?: error("Null socks node")
-            1 -> ssBean ?: error("Null ss node")
-            2 -> ssrBean ?: error("Null ssr node")
-            3 -> vmessBean ?: error("Null vmess node")
-            4 -> vlessBean ?: error("Null vless node")
-            5 -> trojanBean ?: error("Null trojan node")
-            6 -> httpBean ?: error("Null http node")
-            else -> error("Undefined type $type")
-        }
+            TYPE_SOCKS -> socksBean
+            TYPE_HTTP -> httpBean
+            TYPE_SS -> ssBean
+            TYPE_SSR -> ssrBean
+            TYPE_VMESS -> vmessBean
+            TYPE_VLESS -> vlessBean
+            TYPE_TROJAN -> trojanBean
+            TYPE_TROJAN_GO -> trojanGoBean
+            TYPE_NAIVE -> naiveBean
+            TYPE_PING_TUNNEL -> ptBean
+            TYPE_RELAY_BATON -> rbBean
+            TYPE_BROOK -> brookBean
+            TYPE_HYSTERIA -> hysteriaBean
+            TYPE_SSH -> sshBean
+            TYPE_WG -> wgBean
+            TYPE_MIERU -> mieruBean
+            TYPE_TUIC -> tuicBean
+
+            TYPE_CONFIG -> configBean
+            TYPE_CHAIN -> chainBean
+            TYPE_BALANCER -> balancerBean
+            else -> null
+        } ?: SOCKSBean().applyDefaultValues()
     }
 
-    fun toUri(): String {
+    fun haveLink(): Boolean {
         return when (type) {
-            0 -> requireSOCKS().toUri()
-            1 -> requireSS().toUri()
-            2 -> requireSSR().toUri()
-            3 -> requireVMess().toUri(true)
-            4 -> requireVLESS().toUri(true)
-            5 -> requireTrojan().toUri()
-            6 -> requireHttp().toUri()
-            else -> error("Undefined type $type")
+            TYPE_CHAIN -> false
+            TYPE_BALANCER -> false
+            else -> true
         }
     }
 
-    fun useExternalShadowsocks(): Boolean {
-        if (type != 1) return false
-        if (DataStore.forceShadowsocksRust) return true
-        val bean = requireSS()
-        if (bean.plugin.isNotBlank()) {
-            Logs.d("Requiring plugin ${bean.plugin}")
-            return true
+    fun haveStandardLink(): Boolean {
+        return haveLink() && when (type) {
+            TYPE_RELAY_BATON, TYPE_BROOK, TYPE_SSH, TYPE_WG, TYPE_HYSTERIA, TYPE_MIERU, TYPE_TUIC -> false
+            TYPE_CONFIG -> false
+            else -> true
         }
-        if (bean.method !in methodsV2fly) return true
-        return false
     }
 
-    fun useXray(): Boolean {
-        when (val bean = requireBean()) {
-            is VLESSBean -> {
-                if (bean.security == "xtls") return true
-            }
-            is TrojanBean -> {
-                if (bean.security == "xtls") return true
-            }
-        }
+    fun toLink(): String? = with(requireBean()) {
+        when (this) {
+            is SOCKSBean -> toUri()
+            is HttpBean -> toUri()
+            is ShadowsocksBean -> toUri()
+            is ShadowsocksRBean -> toUri()
+            is VMessBean -> toUri()
+            is VLESSBean -> toUri()
+            is TrojanBean -> toUri()
+            is TrojanGoBean -> toUri()
+            is NaiveBean -> toUri()
+            is PingTunnelBean -> toUri()
 
-        return false
+            is RelayBatonBean -> toUniversalLink()
+            is BrookBean -> toUniversalLink()
+            is ConfigBean -> toUniversalLink()
+            is SSHBean -> toUniversalLink()
+            is WireGuardBean -> toUniversalLink()
+            is HysteriaBean -> toUniversalLink()
+            is MieruBean -> toUniversalLink()
+            is TuicBean -> toUniversalLink()
+            else -> null
+        }
     }
 
-    fun putBean(bean: AbstractBean) {
+    fun exportConfig(): Pair<String, String> {
+        var name = "${displayName()}.json"
+
+        return with(requireBean()) {
+            StringBuilder().apply {
+                val config = buildV2RayConfig(this@ProxyEntity)
+                append(config.config)
+
+                if (!config.index.all { it.chain.isEmpty() }) {
+                    name = "${displayName()}.txt"
+                }
+
+                val enableMux = DataStore.enableMux
+                for ((isBalancer, chain) in config.index) {
+                    chain.entries.forEachIndexed { index, (port, profile) ->
+                        val needChain = !isBalancer && index != chain.size - 1
+                        val needMux = enableMux && (isBalancer || index == chain.size - 1)
+                        when (val bean = profile.requireBean()) {
+                            is TrojanGoBean -> {
+                                append("\n\n")
+                                append(bean.buildTrojanGoConfig(port, needMux).also {
+                                    Logs.d(it)
+                                })
+                            }
+                            is NaiveBean -> {
+                                append("\n\n")
+                                append(bean.buildNaiveConfig(port).also {
+                                    Logs.d(it)
+                                })
+                            }
+                            is RelayBatonBean -> {
+                                append("\n\n")
+                                append(bean.buildRelayBatonConfig(port).also {
+                                    Logs.d(it)
+                                })
+                            }
+                            is HysteriaBean -> {
+                                append("\n\n")
+                                append(bean.buildHysteriaConfig(port, null).also {
+                                    Logs.d(it)
+                                })
+                            }
+                            is MieruBean -> {
+                                append("\n\n")
+                                append(bean.buildMieruConfig(port).also {
+                                    Logs.d(it)
+                                })
+                            }
+                            is TuicBean -> {
+                                append("\n\n")
+                                append(bean.buildTuicConfig(port, null).also {
+                                    Logs.d(it)
+                                })
+                            }
+                        }
+                    }
+                }
+            }.toString()
+        } to name
+    }
+
+    fun needExternal(): Boolean {
+        return when (type) {
+            TYPE_TROJAN -> DataStore.providerTrojan != TrojanProvider.V2RAY
+            TYPE_TROJAN_GO -> true
+            TYPE_NAIVE -> true
+            TYPE_PING_TUNNEL -> true
+            TYPE_HYSTERIA -> true
+            TYPE_RELAY_BATON -> true
+            TYPE_BROOK -> true
+            TYPE_MIERU -> true
+            TYPE_TUIC -> true
+
+            TYPE_CONFIG -> true
+            else -> false
+        }
+    }
+
+    fun needUoT(): Boolean {
+        return when (type) {
+            TYPE_NAIVE -> naiveBean!!.uot
+            else -> false
+        }
+    }
+
+    fun isV2RayNetworkTcp(): Boolean {
+        val bean = requireBean() as StandardV2RayBean
+        return when (bean.type) {
+            "tcp", "ws", "http" -> true
+            else -> false
+        }
+    }
+
+    fun needCoreMux(): Boolean {
+        val enableMuxForAll by lazy { DataStore.enableMuxForAll }
+        return when (type) {
+            TYPE_VMESS, TYPE_VLESS -> isV2RayNetworkTcp()
+            TYPE_TROJAN_GO -> false
+            else -> enableMuxForAll
+        }
+    }
+
+    fun putBean(bean: AbstractBean): ProxyEntity {
+        socksBean = null
+        httpBean = null
+        ssBean = null
+        ssrBean = null
+        vmessBean = null
+        vlessBean = null
+        trojanBean = null
+        trojanGoBean = null
+        naiveBean = null
+        ptBean = null
+        rbBean = null
+        brookBean = null
+        hysteriaBean = null
+        sshBean = null
+        wgBean = null
+        mieruBean = null
+        tuicBean = null
+
+        configBean = null
+        chainBean = null
+        balancerBean = null
+
         when (bean) {
             is SOCKSBean -> {
-                type = 0
+                type = TYPE_SOCKS
                 socksBean = bean
             }
             is HttpBean -> {
-                type = 6
+                type = TYPE_HTTP
                 httpBean = bean
             }
             is ShadowsocksBean -> {
-                type = 1
+                type = TYPE_SS
                 ssBean = bean
             }
             is ShadowsocksRBean -> {
-                type = 2
+                type = TYPE_SSR
                 ssrBean = bean
             }
             is VMessBean -> {
-                type = 3
+                type = TYPE_VMESS
                 vmessBean = bean
             }
             is VLESSBean -> {
-                type = 4
+                type = TYPE_VLESS
                 vlessBean = bean
             }
             is TrojanBean -> {
-                type = 5
+                type = TYPE_TROJAN
                 trojanBean = bean
+            }
+            is TrojanGoBean -> {
+                type = TYPE_TROJAN_GO
+                trojanGoBean = bean
+            }
+            is NaiveBean -> {
+                type = TYPE_NAIVE
+                naiveBean = bean
+            }
+            is PingTunnelBean -> {
+                type = TYPE_PING_TUNNEL
+                ptBean = bean
+            }
+            is RelayBatonBean -> {
+                type = TYPE_RELAY_BATON
+                rbBean = bean
+            }
+            is BrookBean -> {
+                type = TYPE_BROOK
+                brookBean = bean
+            }
+            is HysteriaBean -> {
+                type = TYPE_HYSTERIA
+                hysteriaBean = bean
+            }
+            is SSHBean -> {
+                type = TYPE_SSH
+                sshBean = bean
+            }
+            is WireGuardBean -> {
+                type = TYPE_WG
+                wgBean = bean
+            }
+            is MieruBean -> {
+                type = TYPE_MIERU
+                mieruBean = bean
+            }
+            is TuicBean -> {
+                type = TYPE_TUIC
+                tuicBean = bean
+            }
+
+            is ConfigBean -> {
+                type = TYPE_CONFIG
+                configBean = bean
+            }
+            is ChainBean -> {
+                type = TYPE_CHAIN
+                chainBean = bean
+            }
+            is BalancerBean -> {
+                type = TYPE_BALANCER
+                balancerBean = bean
             }
             else -> error("Undefined type $type")
         }
+        return this
     }
 
-    fun requireSOCKS() = requireBean() as SOCKSBean
-    fun requireSS() = requireBean() as ShadowsocksBean
-    fun requireSSR() = requireBean() as ShadowsocksRBean
-    fun requireVMess() = requireBean() as VMessBean
-    fun requireVLESS() = requireBean() as VLESSBean
-    fun requireTrojan() = requireBean() as TrojanBean
-    fun requireHttp() = requireBean() as HttpBean
-
     fun settingIntent(ctx: Context, isSubscription: Boolean): Intent {
-        return Intent(ctx, when (type) {
-            0 -> SocksSettingsActivity::class.java
-            1 -> ShadowsocksSettingsActivity::class.java
-            2 -> ShadowsocksRSettingsActivity::class.java
-            3 -> VMessSettingsActivity::class.java
-            4 -> VLESSSettingsActivity::class.java
-            5 -> TrojanSettingsActivity::class.java
-            6 -> HttpSettingsActivity::class.java
-            else -> throw IllegalArgumentException()
-        }).apply {
+        return Intent(
+            ctx, when (type) {
+                TYPE_SOCKS -> SocksSettingsActivity::class.java
+                TYPE_HTTP -> HttpSettingsActivity::class.java
+                TYPE_SS -> ShadowsocksSettingsActivity::class.java
+                TYPE_SSR -> ShadowsocksRSettingsActivity::class.java
+                TYPE_VMESS -> VMessSettingsActivity::class.java
+                TYPE_VLESS -> VLESSSettingsActivity::class.java
+                TYPE_TROJAN -> TrojanSettingsActivity::class.java
+                TYPE_TROJAN_GO -> TrojanGoSettingsActivity::class.java
+                TYPE_NAIVE -> NaiveSettingsActivity::class.java
+                TYPE_PING_TUNNEL -> PingTunnelSettingsActivity::class.java
+                TYPE_RELAY_BATON -> RelayBatonSettingsActivity::class.java
+                TYPE_BROOK -> BrookSettingsActivity::class.java
+                TYPE_HYSTERIA -> HysteriaSettingsActivity::class.java
+                TYPE_SSH -> SSHSettingsActivity::class.java
+                TYPE_WG -> WireGuardSettingsActivity::class.java
+                TYPE_MIERU -> MieruSettingsActivity::class.java
+                TYPE_TUIC -> TuicSettingsActivity::class.java
+
+                TYPE_CONFIG -> ConfigSettingsActivity::class.java
+                TYPE_CHAIN -> ChainSettingsActivity::class.java
+                TYPE_BALANCER -> BalancerSettingsActivity::class.java
+                else -> throw IllegalArgumentException()
+            }
+        ).apply {
             putExtra(ProfileSettingsActivity.EXTRA_PROFILE_ID, id)
             putExtra(ProfileSettingsActivity.EXTRA_IS_SUBSCRIPTION, isSubscription)
         }
@@ -240,11 +576,17 @@ data class ProxyEntity(
     @androidx.room.Dao
     interface Dao {
 
+        @Query("select * from proxy_entities")
+        fun getAll(): List<ProxyEntity>
+
         @Query("SELECT id FROM proxy_entities WHERE groupId = :groupId ORDER BY userOrder")
         fun getIdsByGroup(groupId: Long): List<Long>
 
         @Query("SELECT * FROM proxy_entities WHERE groupId = :groupId ORDER BY userOrder")
         fun getByGroup(groupId: Long): List<ProxyEntity>
+
+        @Query("SELECT * FROM proxy_entities WHERE id in (:proxyIds)")
+        fun getEntities(proxyIds: List<Long>): List<ProxyEntity>
 
         @Query("SELECT COUNT(*) FROM proxy_entities WHERE groupId = :groupId")
         fun countByGroup(groupId: Long): Long
@@ -258,35 +600,39 @@ data class ProxyEntity(
         @Query("DELETE FROM proxy_entities WHERE id IN (:proxyId)")
         fun deleteById(proxyId: Long): Int
 
+        @Query("DELETE FROM proxy_entities WHERE groupId = :groupId")
+        fun deleteByGroup(groupId: Long)
+
         @Query("DELETE FROM proxy_entities WHERE groupId in (:groupId)")
-        fun deleteByGroup(vararg groupId: Long)
+        fun deleteByGroup(groupId: LongArray)
 
         @Delete
-        fun deleteProxy(vararg proxy: ProxyEntity)
+        fun deleteProxy(proxy: ProxyEntity): Int
+
+        @Delete
+        fun deleteProxy(proxies: List<ProxyEntity>): Int
 
         @Update
-        fun updateProxy(vararg proxy: ProxyEntity)
+        fun updateProxy(proxy: ProxyEntity): Int
+
+        @Update
+        fun updateProxy(proxies: List<ProxyEntity>): Int
 
         @Insert
         fun addProxy(proxy: ProxyEntity): Long
 
+        @Insert
+        fun insert(proxies: List<ProxyEntity>)
 
         @Query("DELETE FROM proxy_entities WHERE groupId = :groupId")
         fun deleteAll(groupId: Long): Int
+
+        @Query("DELETE FROM proxy_entities")
+        fun reset()
 
     }
 
     override fun describeContents(): Int {
         return 0
-    }
-
-    companion object CREATOR : Parcelable.Creator<ProxyEntity> {
-        override fun createFromParcel(parcel: Parcel): ProxyEntity {
-            return ProxyEntity(parcel)
-        }
-
-        override fun newArray(size: Int): Array<ProxyEntity?> {
-            return arrayOfNulls(size)
-        }
     }
 }

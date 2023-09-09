@@ -1,6 +1,6 @@
 /******************************************************************************
  *                                                                            *
- * Copyright (C) 2021 by nekohasekai <sekai@neko.services>                    *
+ * Copyright (C) 2021 by nekohasekai <contact-sagernet@sekai.icu>             *
  * Copyright (C) 2021 by Max Lv <max.c.lv@gmail.com>                          *
  * Copyright (C) 2021 by Mygod Studio <contact-shadowsocks-android@mygod.be>  *
  *                                                                            *
@@ -29,6 +29,7 @@ class PluginConfiguration(val pluginsOptions: MutableMap<String, PluginOptions>,
     private constructor(plugins: List<PluginOptions>) : this(
             plugins.filter { it.id.isNotEmpty() }.associateBy { it.id }.toMutableMap(),
             if (plugins.isEmpty()) "" else plugins[0].id)
+    constructor(): this(listOf())
     constructor(plugin: String) : this(plugin.split('\n').map { line ->
         if (line.startsWith("kcptun ")) {
             val opt = PluginOptions()
@@ -50,9 +51,10 @@ class PluginConfiguration(val pluginsOptions: MutableMap<String, PluginOptions>,
         } else PluginOptions(line)
     })
 
+
     fun getOptions(
             id: String = selected,
-            defaultConfig: () -> String? = { PluginManager.fetchPlugins().lookup[id]?.defaultConfig }
+            defaultConfig: () -> String? = { PluginManager.fetchPlugins(true).lookup[id]?.defaultConfig }
     ) = if (id.isEmpty()) PluginOptions() else pluginsOptions[id] ?: PluginOptions(id, defaultConfig())
 
     override fun toString(): String {
